@@ -161,6 +161,20 @@ def gerakqc():
         y = (disty * ( 1/240))/2
         print("cX:", cX, "cY:", cY, "SpeedX:", x, "SpeedY:", y)
 
+        ######## Gerak Serong
+        if cX <= 260 and cX >= 0 and cY >= 260 and cY <= 480:
+            print("Bergerak Maju Kiri")
+            velocity(x, y, 0)
+        elif cX <= 260 and cX >= 0 and cY <= 220 and cY >= 0:
+            print("Bergerak Maju Kiri")
+            velocity(x, y, 0)
+        elif cX >= 300 and cX <= 640 and cY >= 260 and cY <= 480:
+            print("Bergerak Mundur Kiri")
+            velocity(x, y, 0)
+        elif cX >= 300 and cX <= 640 and cY <= 220 and cY >= 0:
+            print("Bergerak Mundur Kanan")
+            velocity(x, y, 0)
+
         ######## Gerak Satu Arah ###########################3
         if cX <= 280 and cX >= 0 and cY <= 280 and cY >= 200:
             print("Bergerak Maju")
