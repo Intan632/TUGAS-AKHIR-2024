@@ -1,3 +1,4 @@
+#library
 from dronekit import connect, VehicleMode, LocationGlobalRelative 
 from pymavlink import mavutil
 import time
@@ -11,12 +12,13 @@ classes = ["helipad-abjad"]
 # Load the ONNX model
 net = cv2.dnn.readNetFromONNX("helipadorange.onnx")
 
+#awal frame deteksi tengah kosong
 frame = None
 detections = None
 lock = threading.Lock()
 center = None
 
-
+#arming dan take off
 def arm_and_takeoff(aTargetAltitude):
     print("Basic pre-arm checks")
     # Don't try to arm until autopilot is ready
@@ -26,8 +28,8 @@ def arm_and_takeoff(aTargetAltitude):
 
     print ("Arming motors")
     # Copter should arm in GUIDED mode
-    vehicle.mode    = VehicleMode("GUIDED")
-    vehicle.armed   = True
+    vehicle.mode    = VehicleMode("GUIDED") # mengubah mode quadcopter menjadi otonom
+    vehicle.armed   = True # jika quadcopter arming = true
     time.sleep(5)
 
     # Confirm vehicle armed before attempting to take off
@@ -41,10 +43,10 @@ def arm_and_takeoff(aTargetAltitude):
     # Wait until the vehicle reaches a safe height before processing the goto (otherwise the command
     #  after Vehicle.simple_takeoff will execute immediately).
     while True:
-        print (" Altitude: ", vehicle.location.global_relative_frame.alt)
+        print (" Altitude: ", vehicle.location.global_relative_frame.alt) #program menyuruh quadcopter untuk membaca ketinggian menggunakan GPS
         #Break and return from function just below target altitude.
-        if vehicle.location.global_relative_frame.alt>=aTargetAltitude*0.95:
-            print ("Reached target altitude")
+        if vehicle.location.global_relative_frame.alt>=aTargetAltitude*0.95: # 95% di dapatkan standar program dronekit
+            print ("Reached target altitude") # jika ketinggian sudah 95% dari ketinggian yg di tentukan, maka quadcopter akan berhenti.
             break
         time.sleep(1)
 
@@ -55,7 +57,7 @@ def velocity(velocity_x, velocity_y, velocity_z):
         mavutil.mavlink.MAV_FRAME_BODY_NED, # frame Needs to be MAV_FRAME_BODY_NED for forward/back left/right control.
         0b0000111111000111, # type_mask
         0, 0, 0, # x, y, z positions (not used)
-        velocity_x, velocity_y, velocity_z, # m/s
+        velocity_x, velocity_y, velocity_z, # m/s (x=maju mundur y=kanan kiri z=atas bawah)
         0, 0, 0, # x, y, z acceleration
         0, 0)
     vehicle.send_mavlink(msg)
@@ -81,7 +83,7 @@ def capture_frames():
     while True:
         ret, img = cap.read()
         if not ret:
-            break
+            break# jika ada error maka kamera akan mati
         with lock:
             frame = img.copy()
 
@@ -95,7 +97,7 @@ def detect_objects():
         net.setInput(blob)
         detections = net.forward()[0]
 
-def find_helipad_center(frame):
+def find_helipad_center(frame): # program membaca titik tengah
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (9, 9), 2)
     circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, 1.2, 100, param1=100, param2=30, minRadius=30, maxRadius=200)
@@ -103,8 +105,8 @@ def find_helipad_center(frame):
     if circles is not None:
         circles = np.round(circles[0, :]).astype("int")
         for (x, y, r) in circles:
-            cv2.circle(frame, (x, y), r, (0, 255, 0), 4)
-            cv2.rectangle(frame, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1)
+            cv2.circle(frame, (x, y), r, (0, 255, 0), 4)  # pembuatan lingkaran dengan nambah paramater
+            cv2.rectangle(frame, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1) # pembuatan box dengan nambah paramater
             return frame, (x, y)
     return frame, None
 
@@ -127,12 +129,12 @@ def display_frame():
                 class_id = np.argmax(scores)
                 if scores[class_id] > 0.2:
                     confidences.append(confidence)
-                    class_ids.append(class_id)
+                    class_ids.append(class_id) # rumus mengularkan hasil conffiden
                     cx, cy, w, h = row[:4]
                     boxes.append([int((cx - w / 2) * x_scale), int((cy - h / 2) * y_scale), int(w * x_scale), int(h * y_scale)])
 
         indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.2, 0.2)
-        if len(indices) > 0:
+        if len(indices) > 0: # program untuk conffident jika lebih dari 0 dia akan membaca helipad
             indices = indices.flatten()
             for i in indices:
                 x, y, w, h = boxes[i]
@@ -145,8 +147,8 @@ def display_frame():
         if center:
             print(f"Helipad center: {center}")
 
-        cv2.imshow("Deteksi Objek", img)
-        if cv2.waitKey(1) & 0xFF == 27:
+        cv2.imshow("Deteksi Objek", img)# ngeluarin frame di laptop
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
 def gerakqc():
@@ -157,7 +159,7 @@ def gerakqc():
         cX, cY = center
         distx = frame.shape[1] // 2 - cX
         disty = frame.shape[0] // 2 - cY
-        x = (distx * (1/320))/2
+        x = (distx * (1/320))/2 # di sesuaikan(dibagi dua agar gerakannya tidak terllu cepat)
         y = (disty * ( 1/240))/2
         print("cX:", cX, "cY:", cY, "SpeedX:", x, "SpeedY:", y)
 
@@ -191,18 +193,19 @@ def gerakqc():
 
         if cX <= 360 and cX >= 280 and cY <= 280 and cY >= 200 :
             print("Diatas Helipad, menurunkan Ketinggian")
-            velocity(0, 0, 0.2)
-
-        if cX <= 350 and cX >= 290 and cY <= 270 and cY >= 210 and vehicle.location.global_relative_frame.alt > 1 :
+            velocity(0, 0, 0.2)# kecepatan(0,2 m/s)
+            
+    # jika pembacaan x dan y sesuai dengan yang di tentukan dan sesuai ketinggian GPS maka quadcopter akan landing
+        if cX <= 350 and cX >= 290 and cY <= 270 and cY >= 210 and vehicle.location.global_relative_frame.alt > 1 : 
             vehicle.mode = VehicleMode("LAND")
             print("Diatas Helipad, Landing")
-            vehicle.close()
+            vehicle.close() # quadcopter mati
             exit(1)
 
         time.sleep(0.1)
 
-if __name__ == "__main__":
-    vehicle = connect("COM15", baud=57600)
+if __name__ == "__main__": #memulai program
+    vehicle = connect("COM15", baud=57600) #frekuensi/baudret
     print("connect")
 
     # QC mode guided
@@ -213,9 +216,10 @@ if __name__ == "__main__":
     time.sleep(1)
 
     print("Maju Awal 1m")
-    velocityd(0.5,0,0,2)
+    velocityd(0.5,0,0,2) # maju 0,5 meter untuk 2 detik
     time.sleep(1)
 
+    #untuk menjalankan program berjalan bersamaan
     threads = [
         threading.Thread(target=display_frame),
         threading.Thread(target=capture_frames),
@@ -229,5 +233,5 @@ if __name__ == "__main__":
 
     print("Done!")
     cap.release()
-    cv2.destroyAllWindows()
+    cv2.destroyAllWindows()#nutup smua program
 
