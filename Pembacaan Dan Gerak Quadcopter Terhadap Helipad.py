@@ -97,17 +97,28 @@ def detect_objects():
         net.setInput(blob)
         detections = net.forward()[0]
 
-def find_helipad_center(frame): # program membaca titik tengah
+def find_helipad_center(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (9, 9), 2)
-    circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, 1.2, 100, param1=100, param2=30, minRadius=30, maxRadius=200)
-
+    
+    circles = cv2.HoughCircles(
+        blurred, 
+        cv2.HOUGH_GRADIENT, 
+        dp=1.5, # Resolusi akumulator lebih rendah (pemrosesan lebih cepat). Nilai lebih kecil (misalnya 1.0) bisa digunakan jika akurasi lebih penting daripada kecepatan.
+        minDist=50, # Jarak minimum antar pusat lingkaran, diatur sedikit lebih besar dari diameter (50 piksel) Ini memastikan bahwa lingkaran yang terdeteksi tidak saling tumpang tindih.
+        param1=100, # Deteksi tepi lebih selektif.
+        param2=30, # Hanya lingkaran dengan pusat yang kuat dideteksi.
+        minRadius=18, # Radius minimum (setengah diameter ~20 piksel)
+        maxRadius=22  # Radius maksimum (setengah diameter ~20 piksel)
+    )
+    
     if circles is not None:
         circles = np.round(circles[0, :]).astype("int")
         for (x, y, r) in circles:
-            cv2.circle(frame, (x, y), r, (0, 255, 0), 4)  # pembuatan lingkaran dengan nambah paramater
-            cv2.rectangle(frame, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1) # pembuatan box dengan nambah paramater
+            cv2.circle(frame, (x, y), r, (0, 255, 0), 4)  # Gambar lingkaran
+            cv2.rectangle(frame, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1)  # Pusat
             return frame, (x, y)
+    
     return frame, None
 
 def display_frame():
